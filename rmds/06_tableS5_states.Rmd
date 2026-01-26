@@ -1,0 +1,115 @@
+---
+title: "Table S5. ARR by state"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+GROUPING_VARS <- c("state_cat")
+```
+
+```{r data}
+results_df <- readRDS(here("data", "out_of_hosp_predictions.RDS"))
+
+sub_df <- results_df |>
+    filter(
+        model == "xgboost_bayes_tune_nocountynoucr",
+        misclassification_adjustment == "unadjusted", 
+        age_group == "all"
+    ) |>
+    filter(grouping_var %in% GROUPING_VARS) |> 
+    left_join(
+        return_st_info() |> 
+            select(grouping_value = abbrev, name_cat, name_cat_alpha)
+    )
+
+sub_df <- sub_df |>
+    mutate(n_hosp_covid = ifelse(is.na(n_hosp_covid), 0, n_hosp_covid),
+           n_hosp_deaths = ifelse(is.na(n_hosp_deaths), 0, n_hosp_deaths)) |> 
+    mutate(
+        official_covid = n_hosp_covid + n_covid,
+        predicted_covid = round(n_hosp_covid + pred_p500),
+        predicted_covid_upper = round(n_hosp_covid + pred_p975),
+        predicted_covid_lower = round(n_hosp_covid + pred_p025)
+    ) |>
+    mutate(
+        unrecognized_covid = predicted_covid - official_covid,
+        unrecognized_upper = predicted_covid_upper - official_covid,
+        unrecognized_lower = predicted_covid_lower - official_covid
+    ) |> 
+    mutate(
+        reporting_ratio = predicted_covid / official_covid,
+        reporting_ratio_upper = predicted_covid_upper / official_covid,
+        reporting_ratio_lower = predicted_covid_lower / official_covid
+    ) 
+```
+
+```{r table}
+sub_df |>
+    transmute(
+        name_cat_alpha,
+        predicted_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(predicted_covid, big.mark = ","),
+            prettyNum(predicted_covid_lower, big.mark = ","),
+            prettyNum(predicted_covid_upper, big.mark = ",")
+        ),
+        official_covid_print = prettyNum(official_covid, big.mark = ","),
+        unrecognized_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(unrecognized_covid, big.mark = ","),
+            prettyNum(unrecognized_lower, big.mark = ","),
+            prettyNum(unrecognized_upper, big.mark = ",")
+        ),
+        # percent_unrecognized_print = sprintf("%0.1f (%0.1f to %0.1f)",
+        #                                round(unrecognized_covid / predicted_covid * 100, 1),
+        #                                round(unrecognized_lower / predicted_covid * 100, 1),
+        #                                round(unrecognized_upper / predicted_covid * 100, 1)),
+        reporting_ratio_print = sprintf(
+            "%0.2f (%0.2f to %0.2f)",
+            round(reporting_ratio, 2),
+            round(reporting_ratio_lower, 2),
+            round(reporting_ratio_upper, 2)
+        )
+    ) |> 
+    arrange(name_cat_alpha) |> 
+    kable(
+        format = "html",
+        col.names = c(
+            "State of residence",
+            "Predicted (95% CI)",
+            "Official",
+            "Unrecognized (95% CI)",
+            # "Percent Unrecognized (95% CI)",
+            "Adjusted Reporting Ratio (95% CI)"
+        ),
+        align = "lccccl",
+        escape = FALSE
+    ) |> 
+    add_header_above(
+        c(" ",
+          "Absolute number of COVID-19 Deaths" = 3,
+          # " ",
+          " ")
+        ) |> 
+    kable_styling("striped", full_width = TRUE)
+```

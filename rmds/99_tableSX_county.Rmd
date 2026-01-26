@@ -1,0 +1,170 @@
+---
+title: "Table SX. County-level characteristics of decedents with unrecognized COVID-19"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+GROUPING_VARS <- c(
+    "rucc_2013_cat",
+    "home_ownership",
+    "household_income",
+    "some_college",
+    "poor_or_fair_health",
+    "diabetes"
+)
+```
+
+```{r data}
+results_df <- readRDS(here("data", "out_of_hosp_predictions.RDS"))
+
+sub_df <- results_df |>
+    filter(
+        model == "xgboost_bayes_tune_nocountynoucr",
+        misclassification_adjustment == "unadjusted",
+        age_group == "all"
+    ) |>
+    filter(grouping_var %in% GROUPING_VARS)
+
+sub_df <- sub_df |>
+    mutate(
+        n_hosp_covid = ifelse(is.na(n_hosp_covid), 0, n_hosp_covid),
+        n_hosp_deaths = ifelse(is.na(n_hosp_deaths), 0, n_hosp_deaths)
+    ) |>
+    mutate(
+        official_covid = n_hosp_covid + n_covid,
+        predicted_covid = round(n_hosp_covid + pred_p500),
+        predicted_covid_upper = round(n_hosp_covid + pred_p975),
+        predicted_covid_lower = round(n_hosp_covid + pred_p025)
+    ) |>
+    mutate(
+        unrecognized_covid = predicted_covid - official_covid,
+        unrecognized_upper = predicted_covid_upper - official_covid,
+        unrecognized_lower = predicted_covid_lower - official_covid
+    ) |>
+    mutate(
+        reporting_ratio = predicted_covid / official_covid,
+        reporting_ratio_upper = predicted_covid_upper / official_covid,
+        reporting_ratio_lower = predicted_covid_lower / official_covid
+    )  |>
+    mutate(
+        y_pos = case_when(
+            ## Rurality
+            axis_lab == "rucc_2013_cat 1" ~ 39,
+            axis_lab == "rucc_2013_cat 2" ~ 38,
+            axis_lab == "rucc_2013_cat 3" ~ 37,
+            axis_lab == "rucc_2013_cat 4" ~ 36,
+            axis_lab == "rucc_2013_cat 5" ~ 35,
+            axis_lab == "rucc_2013_cat 6" ~ 34,
+            axis_lab == "rucc_2013_cat 7" ~ 33,
+            axis_lab == "rucc_2013_cat 8" ~ 32,
+            axis_lab == "rucc_2013_cat 9" ~ 31,
+            
+            ## Percent homeownership
+            axis_lab == "home_ownership [0,0.659]" ~ 29,
+            axis_lab == "home_ownership (0.659,0.71]" ~ 28,
+            axis_lab == "home_ownership (0.71,0.745]" ~ 27,
+            axis_lab == "home_ownership (0.745,0.781]" ~ 26,
+            axis_lab == "home_ownership (0.781,0.931]" ~ 25,
+            
+            ## Household median income
+            axis_lab == "household_income [2.47e+04,4.44e+04]" ~ 23,
+            axis_lab == "household_income (4.44e+04,5.07e+04]" ~ 22,
+            axis_lab == "household_income (5.07e+04,5.64e+04]" ~ 21,
+            axis_lab == "household_income (5.64e+04,6.44e+04]" ~ 20,
+            axis_lab == "household_income (6.44e+04,1.52e+05]" ~ 19,
+            
+            ## Percent some college
+            axis_lab == "some_college [0.00833,0.48]" ~ 17,
+            axis_lab == "some_college (0.48,0.551]" ~ 16,
+            axis_lab == "some_college (0.551,0.613]" ~ 15,
+            axis_lab == "some_college (0.613,0.686]" ~ 14,
+            axis_lab == "some_college (0.686,1]" ~ 13,
+            
+            ## Percent reporting poor or fair health
+            axis_lab == "poor_or_fair_health [0.0859,0.154]" ~ 11,
+            axis_lab == "poor_or_fair_health (0.154,0.182]" ~ 10,
+            axis_lab == "poor_or_fair_health (0.182,0.21]" ~ 9,
+            axis_lab == "poor_or_fair_health (0.21,0.245]" ~ 8,
+            axis_lab == "poor_or_fair_health (0.245,0.41]" ~ 7,
+            
+            ## Percent diabetes
+            axis_lab == "diabetes [0.024,0.091]" ~ 5,
+            axis_lab == "diabetes (0.091,0.11]" ~ 4,
+            axis_lab == "diabetes (0.11,0.128]" ~ 3,
+            axis_lab == "diabetes (0.128,0.152]" ~ 2,
+            axis_lab == "diabetes (0.152,0.295]" ~ 1
+        )
+    ) |>
+    arrange(desc(y_pos)) |> 
+    filter(!is.na(y_pos))
+```
+
+```{r table}
+sub_df |>
+    transmute(
+        axis_lab,
+        predicted_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(predicted_covid, big.mark = ","),
+            prettyNum(predicted_covid_lower, big.mark = ","),
+            prettyNum(predicted_covid_upper, big.mark = ",")
+        ),
+        official_covid_print = prettyNum(official_covid, big.mark = ","),
+        unrecognized_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(unrecognized_covid, big.mark = ","),
+            prettyNum(unrecognized_lower, big.mark = ","),
+            prettyNum(unrecognized_upper, big.mark = ",")
+        ),
+        # percent_unrecognized_print = sprintf("%0.1f (%0.1f to %0.1f)",
+        #                                round(unrecognized_covid / predicted_covid * 100, 1),
+        #                                round(unrecognized_lower / predicted_covid * 100, 1),
+        #                                round(unrecognized_upper / predicted_covid * 100, 1)),
+        reporting_ratio_print = sprintf(
+            "%0.2f (%0.2f to %0.2f)",
+            round(reporting_ratio, 2),
+            round(reporting_ratio_lower, 2),
+            round(reporting_ratio_upper, 2)
+        )
+    ) |> 
+    kable(
+        format = "html",
+        col.names = c(
+            "Decedent characteristics",
+            "Predicted (95% CI)",
+            "Official",
+            "Unrecognized (95% CI)",
+            # "Percent Unrecognized (95% CI)",
+            "Adjusted Reporting Ratio (95% CI)"
+        ),
+        align = "lccccl",
+        escape = FALSE
+    ) |> 
+    add_header_above(
+        c(" ",
+          "Absolute number of COVID-19 Deaths" = 3,
+          # " ",
+          " ")
+        ) |> 
+    kable_styling("striped", full_width = TRUE)
+```

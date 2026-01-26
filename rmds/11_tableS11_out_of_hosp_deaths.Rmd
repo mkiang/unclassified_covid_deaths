@@ -1,0 +1,166 @@
+---
+title: "Table S11. Out of hospital COVID-19 and all-cause deaths by characteristic"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+
+source(here("code", "utils.R"))
+```
+
+```{r data, results='hide'}
+place_death <- readRDS(here("data_private", "place_certifier_index.RDS"))
+all_deaths <- readRDS(here("data_private", "analytic_data.RDS")) |> 
+    bind_rows(readRDS(here("data_private", "analytic_prediction_data.RDS"))) |> 
+    left_join(place_death) 
+
+summarize_deaths <- function(deaths_df) {
+    covid_df <- deaths_df |>
+        filter(has_covid == 1) |>
+        summarize(
+            out_of_hosp_covid = sum(placdth_str != "hospital_inpatient"),
+            all_locations_covid = n()
+        ) |>
+        ungroup() |>
+        mutate(prop_out_of_hosp_covid = out_of_hosp_covid / all_locations_covid)
+    all_cause_df <- deaths_df |>
+        summarize(
+            out_of_hosp_allcause = sum(placdth_str != "hospital_inpatient"),
+            all_locations_allcause = n()
+        ) |>
+        ungroup() |>
+        mutate(prop_out_of_hosp_allcause = out_of_hosp_allcause / all_locations_allcause)
+    
+    if (is_grouped_df(deaths_df)) {
+        group_var <- deaths_df |> 
+            group_keys() |>
+            names()
+        
+        left_join(covid_df, all_cause_df) |> 
+            rename("grouping_name" = group_var) |> 
+            mutate(grouping = group_var, .before = 1)
+    } else {
+        bind_cols(covid_df, all_cause_df)
+    }
+}
+
+total_df <- summarize_deaths(all_deaths) |>
+        mutate(
+            grouping = "total",
+            grouping_name = "total",
+            .before = 1
+        )
+division_df <- summarize_deaths(all_deaths |> group_by(division))
+wave_df <- all_deaths |>
+    mutate(date = as.Date("2020-03-15") + lubridate::dmonths(month_into_pandemic)) |>
+    mutate(
+        wave = case_when(
+            between(date, as.Date("2020-03-01"), as.Date("2020-05-31")) ~ "wave1",
+            between(date, as.Date("2020-06-01"), as.Date("2020-08-31")) ~ "wave2",
+            between(date, as.Date("2020-09-01"), as.Date("2021-05-31")) ~ "wave3",
+            between(date, as.Date("2021-06-01"), as.Date("2021-10-31")) ~ "wave4",
+            between(date, as.Date("2021-11-01"), as.Date("2021-12-31")) ~ "wave5"
+        )
+    ) |>
+    group_by(wave) |>
+    summarize_deaths()
+age_df <- all_deaths |> 
+    mutate(age_bin = case_when(
+        between(age_years, 25, 34) ~ "25-34",
+        between(age_years, 35, 44) ~ "35-44",
+        between(age_years, 45, 54) ~ "45-54",
+        between(age_years, 55, 64) ~ "55-64",
+        between(age_years, 65, 74) ~ "65-74",
+        between(age_years, 75, 84) ~ "75-84",
+        between(age_years, 85, 200) ~ "85+",
+    )) |> 
+    group_by(age_bin) |> 
+    summarize_deaths()
+sex_df <- all_deaths |> 
+    group_by(sex_cat) |> 
+    summarize_deaths()
+educ_df <- all_deaths |> 
+    group_by(educ_cat) |> 
+    summarize_deaths()
+marital_df <- all_deaths |> 
+    group_by(marital_cat) |> 
+    summarize_deaths()
+raceeth_df <- all_deaths |> 
+    mutate(race_eth = case_when(is_nonhispanic_cat != "hispanic" ~ racerbig_cat,
+                                is_nonhispanic_cat == "hispanic" ~ "hispanic")) |> 
+    group_by(race_eth) |> 
+    summarize_deaths()
+rucc_df <- all_deaths |>
+    group_by(rucc_2013_cat) |>
+    summarize_deaths()
+homeowners_df <- all_deaths |>
+    mutate(home_ownership = ggplot2::cut_number(home_ownership, n = 5, ordered_result = TRUE)) |>
+    group_by(home_ownership) |>
+    summarize_deaths()
+income_df <- all_deaths |>
+    mutate(household_income = ggplot2::cut_number(household_income, n = 5, ordered_result = TRUE)) |>
+    group_by(household_income) |>
+    summarize_deaths()
+some_college_df <- all_deaths |>
+    mutate(some_college = ggplot2::cut_number(some_college, n = 5, ordered_result = TRUE)) |>
+    group_by(some_college) |>
+    summarize_deaths()
+poor_or_fair_health_df <- all_deaths |>
+    mutate(poor_or_fair_health = ggplot2::cut_number(poor_or_fair_health, n = 5, ordered_result = TRUE)) |>
+    group_by(poor_or_fair_health) |>
+    summarize_deaths()
+diabetes_df <- all_deaths |>
+    mutate(diabetes = ggplot2::cut_number(diabetes, n = 5, ordered_result = TRUE)) |>
+    group_by(diabetes) |>
+    summarize_deaths()
+```
+```{r}
+print_df <- bind_rows(total_df,
+          division_df,
+          wave_df,
+          age_df,
+          sex_df,
+          educ_df,
+          marital_df,
+          raceeth_df,
+          rucc_df,
+          homeowners_df,
+          income_df,
+          some_college_df,
+          poor_or_fair_health_df,
+          diabetes_df)
+
+print_df |> 
+    mutate(out_of_hosp_covid = prettyNum(out_of_hosp_covid, big.mark = ","),
+           all_locations_covid = prettyNum(all_locations_covid, big.mark = ","),
+           prop_out_of_hosp_covid = sprintf("%0.3f", round(prop_out_of_hosp_covid, 3)),
+           out_of_hosp_allcause = prettyNum(out_of_hosp_allcause, big.mark = ","),
+           all_locations_allcause = prettyNum(all_locations_allcause, big.mark = ","),
+           prop_out_of_hosp_allcause = sprintf("%0.3f", round(prop_out_of_hosp_allcause, 3))) |> 
+    kable(
+        format = "html", 
+        escape = FALSE
+    ) |> 
+    kable_styling("striped", full_width = TRUE)
+```
+

@@ -1,0 +1,166 @@
+---
+title: "Table S7. Individual-level characteristics of decedents with unrecognized COVID-19"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+GROUPING_VARS <- c(
+    "total",
+    "age_bin",
+    "educ_cat",
+    "marital_cat",
+    "sex_cat",
+    "racerbig_recode"
+)
+```
+
+```{r data}
+results_df <- readRDS(here("data", "out_of_hosp_predictions.RDS"))
+
+sub_df <- results_df |>
+    filter(
+        model == "xgboost_bayes_tune_nocountynoucr",
+        misclassification_adjustment == "unadjusted",
+        age_group == "all"
+    ) |>
+    filter(grouping_var %in% GROUPING_VARS)
+
+sub_df <- sub_df |>
+    mutate(n_hosp_covid = ifelse(is.na(n_hosp_covid), 0, n_hosp_covid),
+           n_hosp_deaths = ifelse(is.na(n_hosp_deaths), 0, n_hosp_deaths)) |> 
+    mutate(
+        official_covid = n_hosp_covid + n_covid,
+        predicted_covid = round(n_hosp_covid + pred_p500),
+        predicted_covid_upper = round(n_hosp_covid + pred_p975),
+        predicted_covid_lower = round(n_hosp_covid + pred_p025)
+    ) |>
+    mutate(
+        unrecognized_covid = predicted_covid - official_covid,
+        unrecognized_upper = predicted_covid_upper - official_covid,
+        unrecognized_lower = predicted_covid_lower - official_covid
+    ) |> 
+    mutate(
+        reporting_ratio = predicted_covid / official_covid,
+        reporting_ratio_upper = predicted_covid_upper / official_covid,
+        reporting_ratio_lower = predicted_covid_lower / official_covid
+    )  |> 
+    mutate(
+        y_pos = case_when(
+            ## Age
+            axis_lab == "age_bin 25to34" ~ 37,
+            axis_lab == "age_bin 35to44" ~ 36,
+            axis_lab == "age_bin 45to54" ~ 35,
+            axis_lab == "age_bin 55to64" ~ 34,
+            axis_lab == "age_bin 65to74" ~ 33,
+            axis_lab == "age_bin 75to84" ~ 32,
+            axis_lab == "age_bin 85andup" ~ 31,
+            
+            ## Sex
+            axis_lab == "sex_cat F" ~ 29,
+            axis_lab == "sex_cat M" ~ 28,
+            
+            ## Education
+            axis_lab == "educ_cat < hs" ~ 26,
+            axis_lab == "educ_cat hs_no_diploma" ~ 25,
+            axis_lab == "educ_cat hs_ged" ~ 24,
+            axis_lab == "educ_cat some_college" ~ 23,
+            axis_lab == "educ_cat associate" ~ 22,
+            axis_lab == "educ_cat bachelor" ~ 21,
+            axis_lab == "educ_cat master" ~ 20,
+            axis_lab == "educ_cat doctorate" ~ 19,
+            axis_lab == "educ_cat unknown" ~ 18,
+            
+            ## Marital status
+            axis_lab == "marital_cat S" ~ 16,
+            axis_lab == "marital_cat M" ~ 15,
+            axis_lab == "marital_cat D" ~ 14,
+            axis_lab == "marital_cat W" ~ 13,
+            axis_lab == "marital_cat U" ~ 12,
+            
+            ## Race / ethnicity
+            axis_lab == "racerbig_recode hispanic" ~ 10,
+            axis_lab == "racerbig_recode nhaian" ~ 9,
+            axis_lab == "racerbig_recode nhasian" ~ 8,
+            axis_lab == "racerbig_recode nhasian_indian" ~ 7,
+            axis_lab == "racerbig_recode nhblack" ~ 6,
+            axis_lab == "racerbig_recode nhmultiracial" ~ 5,
+            axis_lab == "racerbig_recode nhpacific_islander" ~ 4,
+            axis_lab == "racerbig_recode nhwhite" ~ 3,
+            axis_lab == "racerbig_recode unknown" ~ 2,
+            
+            ## Total
+            axis_lab == "total total" ~ 1,
+        )
+    ) |> 
+    arrange(desc(y_pos))
+```
+
+```{r table}
+sub_df |>
+    transmute(
+        axis_lab,
+        predicted_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(predicted_covid, big.mark = ","),
+            prettyNum(predicted_covid_lower, big.mark = ","),
+            prettyNum(predicted_covid_upper, big.mark = ",")
+        ),
+        official_covid_print = prettyNum(official_covid, big.mark = ","),
+        unrecognized_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(unrecognized_covid, big.mark = ","),
+            prettyNum(unrecognized_lower, big.mark = ","),
+            prettyNum(unrecognized_upper, big.mark = ",")
+        ),
+        # percent_unrecognized_print = sprintf("%0.1f (%0.1f to %0.1f)",
+        #                                round(unrecognized_covid / predicted_covid * 100, 1),
+        #                                round(unrecognized_lower / predicted_covid * 100, 1),
+        #                                round(unrecognized_upper / predicted_covid * 100, 1)),
+        reporting_ratio_print = sprintf(
+            "%0.2f (%0.2f to %0.2f)",
+            round(reporting_ratio, 2),
+            round(reporting_ratio_lower, 2),
+            round(reporting_ratio_upper, 2)
+        )
+    ) |> 
+    kable(
+        format = "html",
+        col.names = c(
+            "Decedent characteristics",
+            "Predicted (95% CI)",
+            "Official",
+            "Unrecognized (95% CI)",
+            # "Percent Unrecognized (95% CI)",
+            "Adjusted Reporting Ratio (95% CI)"
+        ),
+        align = "lccccl",
+        escape = FALSE
+    ) |> 
+    add_header_above(
+        c(" ",
+          "Absolute number of COVID-19 Deaths" = 3,
+          # " ",
+          " ")
+        ) |> 
+    kable_styling("striped", full_width = TRUE)
+```

@@ -1,0 +1,54 @@
+---
+title: "Proportion of data by in- vs out-of-hospital and certifier"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+```
+
+```{r data, results='hide'}
+library(tidyverse)
+library(here)
+
+place_death <- readRDS(here("data_private", "place_certifier_index.RDS"))
+all_deaths <- readRDS(here("data_private", "analytic_data.RDS")) |> 
+    bind_rows(readRDS(here("data_private", "analytic_prediction_data.RDS"))) |> 
+    left_join(place_death) 
+```
+
+```{r}
+all_deaths |>
+    mutate(
+        in_vs_out = case_when(placdth_str == "hospital_inpatient" ~ "in_hospital", TRUE ~ "out_of_hospital"),
+        physician_vs_me = case_when(
+            certifier_str %in% c("certifying_physician", "pronouncing_certifying_physician") ~ "cert_physician",
+            TRUE ~ "other"
+        )
+    ) |>
+    group_by(in_vs_out, physician_vs_me) |>
+    count() |>
+    pivot_wider(names_from = physician_vs_me,
+                values_from = n,
+                values_fill = 0)
+```
+

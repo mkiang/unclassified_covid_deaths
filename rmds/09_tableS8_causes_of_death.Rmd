@@ -1,0 +1,182 @@
+---
+title: "Causes of death among misclassified COVID"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+```
+
+```{r data, results='hide'}
+preds_df <-
+    bind_rows(readRDS(here::here(
+        "data_private", "split_inhosp_predictions.RDS"
+    )),
+    readRDS(
+        here(
+            "output",
+            "out_of_hosp",
+            "xgboost",
+            "fold2", 
+            "nocountynoucr",
+            "batch000",
+            "out_of_hospital_xgboost_bayes_tune_nocountynoucr_batch000_boot000.RDS"
+        )
+    )$predictions) |>
+    select(row_id,
+           pred_has_covid = .pred_has_covid)
+
+raw_data <- bind_rows(
+    readRDS(here("data_private", "raw_data_prediction_only.RDS")),
+    readRDS(here("data_private", "raw_data_test_training.RDS"))
+    ) |>
+    select(row_id,
+           ucod,
+           ucr113)
+
+has_covid <- readRDS(here("data_private", "place_certifier_index.RDS")) |> 
+    mutate(in_hosp = case_when(
+        placdth_str == "hospital_inpatient" ~ 1,
+        TRUE ~ 0
+    )) |> 
+    select(row_id, in_hosp, has_covid_any)
+
+analytic_df <- preds_df |>
+    left_join(has_covid) |>
+    left_join(raw_data) |>
+    mutate(has_covid = factor(
+        has_covid_any,
+        levels = 1:0,
+        labels = c("has_covid", "no_covid"),
+        ordered = TRUE
+    )) |>
+    mutate(has_covid_pred = factor(
+        pred_has_covid > 0.5,
+        levels = c(TRUE, FALSE),
+        labels = c("has_covid", "no_covid"),
+        ordered = TRUE
+    ))
+
+rm(has_covid, raw_data, preds_df)
+gc()
+```
+
+## Confusion matrix
+
+First thing we should ask is how often the model predicts one thing but the "truth" (according to the hospital data) is something else. Below is the confusion matrix for **in hospital** deaths only (noting obviously that we cannot make a similar matrix for out of hospital deaths since we don't have ground truth for those):
+
+```{r}
+yardstick::conf_mat(analytic_df |> 
+                        filter(in_hosp == 1), 
+                    truth = has_covid,
+                    estimate = has_covid_pred)
+```
+
+As you can see, the model correctly predicts COVID-19 452k times, correctly predicts no COVID-19 1.1M times, incorrectly predicts COVID-19 198k times, and incorrectly predicts no COVID-19 122k times. Keep these numbers in mind as we do the rest of the results.
+
+## Causes of death among undiagnosed (out of hospital) COVID-19 deaths
+
+If we look only at out of hospital deaths and focus on the ones that the model predicted are COVID-19 but the official death certificate said are *not* COVID-19, the top 20 causes of death are:
+
+```{r}
+analytic_df |> 
+    filter(in_hosp == 0) |> 
+    filter(has_covid_any == 0, pred_has_covid > .5) |> 
+    group_by(ucr113) |> 
+    count() |>
+    arrange(desc(n)) |>
+    ungroup() |> 
+    mutate(rank = 1:n(), .before = 1) |> 
+    mutate(prop = sprintf("%0.3f", round(n / sum(n), 3))) |>
+    mutate(cume_n = cumsum(n), 
+           cume_prop = round(cumsum(prop), 3)) |> 
+    mutate(n = prettyNum(n, big.mark = ",")) |>
+    mutate(cume_n = prettyNum(cume_n, big.mark = ",")) |>
+    slice(1:20) |> 
+    kable()
+```
+According to [the NCHS data dictionary](https://data.nber.org/nvss/mortality/orig/mort2020layout.pdf):
+
+- 111 is "residual" or "all other diseases"
+- 63 is "all other forms of chronic ischemic heart disease"
+- 52 is Alzheimer's disease
+- 70 is "cerebrovascular diseases
+- 68 is "all other forms of heart disease"
+- 46 is diabetes mellitus
+- 27 is "malignant neoplasms of trachea, bronchus, and lung"
+- 86 is "other chronic lower respiratory diseases"
+- 62 is "atherosclerotic cardiovascular disease"
+- 59 is "acute myocardial infarction"
+- 56 is "Hypertensive heart disease"
+- 67 is "Heart failure"
+- 43 is "All other and unspecified malignant neoplasms"
+- 23 is "Malignant neoplasms of colon, rectum and anus"
+- 51 is "Parkinson disease"
+- 89 is "Other diseases of respiratory system"
+- 69 is "Essential hypertension and hypertensive renal disease"
+- 25 is "Malignant neoplasm of pancreas"
+- 100 is "Renal failure"
+- 33 is "Malignant neoplasm of prostate"
+
+## Causes of death among misclassified COVID-19 deaths (in hospital)
+
+If we look only at **in** hospital deaths and focus on the ones that the model predicted are COVID-19 but the official death certificate said are *not* COVID-19, the top 20 causes of death are:
+
+```{r}
+analytic_df |> 
+    filter(in_hosp == 1) |> 
+    filter(has_covid_any == 0, pred_has_covid > .5) |> 
+    group_by(ucr113) |> 
+    count() |>
+    arrange(desc(n)) |>
+    ungroup() |> 
+    mutate(rank = 1:n(), .before = 1) |> 
+    mutate(prop = sprintf("%0.3f", round(n / sum(n), 3))) |>
+    mutate(cume_n = cumsum(n), 
+           cume_prop = round(cumsum(prop), 3)) |> 
+     mutate(n = prettyNum(n, big.mark = ",")) |>
+    mutate(cume_n = prettyNum(cume_n, big.mark = ",")) |>
+    slice(1:20) |> 
+    kable()
+```
+According to [the NCHS data dictionary](https://data.nber.org/nvss/mortality/orig/mort2020layout.pdf):
+
+- 111 is "residual" or "all other diseases"
+- 70 is "cerebrovascular diseases
+- 10 is septicemia
+- 68 is "all other forms of heart disease"
+- 27 is "malignant neoplasms of trachea, bronchus, and lung"
+- 78 is pneumonia
+- 63 is "all other forms of chronic ischemic heart disease"
+- 89 is "other diseases of respiratory system"
+- 100 is renal failure
+- 67 is heart failure
+- 59 is "acute myocardial infarction"
+- 46 is diabetes mellitus
+- 86 is "other chronic lower respiratory diseases"
+- 43 is "All other and unspecified malignant neoplasms"
+- 94 is "Alcoholic liver disease"
+- 88 is "Pneumonitis due to solids and liquids"
+- 18 is "Other and unspecified infectious and parasitic diseases and their sequelae"
+- 95 is "Other chronic liver disease and cirrhosis"
+- 40 is "Leukemia"
+- 29 is "Malignant neoplasm of breast"

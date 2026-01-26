@@ -1,0 +1,109 @@
+---
+title: "Table S4. Sensitivity and Misclassification Adjustment Results"
+author: "Mathew Kiang"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    code_folding: hide
+    mode: selfcontained
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r preamble}
+## Imports ----
+library(tidyverse)
+library(here)
+library(knitr)
+library(kableExtra)
+library(DT)
+source(here("code", "utils.R"))
+
+## Data ----
+results_df <- readRDS(here("data", "out_of_hosp_predictions.RDS")) |> 
+    filter(age_group == "all", grouping_var == "total") |> 
+    filter((model == "lightgbm_bayes_tune_nocountynoucr" &
+           misclassification_adjustment == "unadjusted") | 
+               model == "xgboost_bayes_tune_nocountynoucr") |>
+    calculate_arr() 
+```
+
+```{r}
+print_table <- results_df |>
+    transmute(
+        scenario = case_when(
+            grepl("lightgbm", model) &
+                misclassification_adjustment == "unadjusted" ~ "alternative_model",
+            misclassification_adjustment == "no_pruning" ~ "naive_fdr_for_adjustment",
+            misclassification_adjustment == "exact_matching" ~ "psm_fdr_for_adjustment",
+            misclassification_adjustment == "exact_with_caliper" ~ "psm_caliper_fdr_for_adjustment",
+            misclassification_adjustment == "inverse_odds_weighted" ~ "fdr_for_reweighted",
+            misclassification_adjustment == "unadjusted" ~ "primary"
+        ),
+        predicted_covid_print = sprintf(
+            "%s (%s to %s)",
+            prettyNum(predicted_covid, big.mark = ","),
+            prettyNum(predicted_covid_lower, big.mark = ","),
+            prettyNum(predicted_covid_upper, big.mark = ",")
+        ),
+        abs_diff = sprintf(
+            "%s (%s to %s)",
+            prettyNum(predicted_covid - official_covid, big.mark = ","),
+            prettyNum(predicted_covid_lower - official_covid, big.mark = ","),
+            prettyNum(predicted_covid_upper - official_covid, big.mark = ",")
+        ),
+        arr = sprintf(
+            "%0.2f (%0.2f to %0.2f)",
+            round(reporting_ratio, 2),
+            round(reporting_ratio_lower, 2),
+            round(reporting_ratio_upper, 2)
+        )
+    ) |>
+    mutate(
+        scenario_cat = factor(
+            scenario,
+            levels = c(
+                "naive_fdr_for_adjustment",
+                "psm_fdr_for_adjustment",
+                "psm_caliper_fdr_for_adjustment",
+                "fdr_for_reweighted",
+                "alternative_model",
+                "primary"
+            ),
+            labels = c(
+                "Naive FOR/FDR adjustment",
+                "FOR/FDR from matched sample",
+                "FOR/FDR from matched sample with caliper",
+                "FOR/FDR reweighted",
+                "Alternative model (LightGBM)",
+                "Primary result"
+            ),
+            ordered = TRUE
+        ),
+        .before = 1
+    ) |>
+    select(-scenario) |>
+    arrange(scenario_cat)
+```
+
+```{r}
+print_table |>
+    kable(
+        format = "html", 
+        row.names = NA,
+        col.names = c(
+            "Sensitivity analysis",
+            "Predicted COVID-19 deaths (95%% CI)",
+            "Absolute different from official COVID-19 deaths (95%% CI)",
+            "Adjusted reporting ratio (95%% CI)"
+        )
+    ) |> 
+    kable_styling("striped", full_width = TRUE)
+```

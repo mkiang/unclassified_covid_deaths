@@ -1,0 +1,97 @@
+---
+title: "Table X. Model Performance and weighted ROC AUC"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r imports}
+library(here)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+source(here("code", "utils.R"))
+```
+
+```{r data}
+summarized_metrics <- readRDS(here::here("data", "model_metrics.RDS"))
+sub_metrics <- summarized_metrics |>
+    dplyr::filter(model_type != "null_model",
+                  !is.na(metric_cat))
+```
+
+
+## Model performance (in-hospital data, 5-fold out of sample)
+
+```{r table}
+sub_metrics |>
+    group_by(metric_cat) |>
+    mutate(pomp = mean / max(mean) * 100) |>
+    transmute(
+        model_cat,
+        preproc_cat,
+        metric_cat,
+        n_folds,
+        metric_value = sprintf(
+            "%0.3f (%0.3f, %0.3f)",
+            round(mean, 3),
+            round(min,  3),
+            round(max,  3)
+        ),
+        pomp_print = sprintf("%0.1f%%", round(pomp, 1))
+    ) |> 
+    arrange(metric_cat, model_cat, preproc_cat) |>
+    kable(
+        format = "html",
+        col.names = c(
+            "Model",
+            "Covariate set", 
+            "Performance metric",
+            "K-folds",
+            "Metric mean (min, max)",
+            "Percent of maximum possible value"
+        ),
+        escape = FALSE
+    ) |> 
+    kable_styling("striped", full_width = TRUE)
+```
+
+## Weighted ROC AUC
+
+[This paper suggests a way to estimate your model's performance in a target population using weights.](https://academic.oup.com/biometrics/article/79/3/2382/7513886) Here, we fit a lightgbm as our propensity model to estimate the probability of a death being in- vs out-of-hospital. We then use the inverse odds as our weights to calculate weighted ROC AUC:
+
+```{r}
+## Calculate the expected model performance if the in-hospital deaths had 
+## a similar covariate distribution as the out-of-hospital deaths. 
+preds_df <- readRDS(here::here("data_private", "split_inhosp_predictions.RDS")) 
+propensity_scores <- readRDS(here("data_private", "propensity_scores.RDS"))
+
+### Calculate inverse odds weights
+propensity_scores <- propensity_scores |> 
+    mutate(weight = (1 - .pred_in_hospital) / .pred_in_hospital)
+
+preds_df <- preds_df |> 
+    left_join(
+        propensity_scores |> 
+            select(row_id, weight)
+    )
+
+## Weighted by inverse odds = 0.893296
+yardstick::roc_auc(data = preds_df, 
+                   truth = has_covid_cat,
+                   .pred_has_covid, 
+                   case_weights = weight)
+```

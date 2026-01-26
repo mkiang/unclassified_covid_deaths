@@ -1,0 +1,99 @@
+---
+title: "Table S2. Assessing model fairness with respect to rurality"
+author: "Mathew Kiang"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    code_folding: hide
+    mode: selfcontained
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(error = FALSE)
+```
+
+```{r preamble}
+## Imports ----
+library(tidyverse)
+library(here)
+library(knitr)
+library(kableExtra)
+library(DT)
+library(fairness)
+source(here("code", "utils.R"))
+
+## Data ----
+fair_df <- readRDS(here("data", "fairness_metrics.RDS")) |>
+    filter(grouping %in% c("rucc_2013_cat")) |>
+    filter(metric_name %in% c("ROC AUC", "FPR", "FNR"))
+```
+
+We will assess the model fairness with respect to race by comparing (1) ROC AUC, (2) false negative rate parity, and (3) false positive rate parity. Taken together, these metrics represent the most important factors associated with the target task of the paper: creating a classifier on in-hospital deaths that can be used for out-of-hospital prediction. For all metrics, we use the largest subgroup as our reference group.
+
+```{r}
+fairness_table <- fair_df |>
+    transmute(
+        group_name,
+        group_size = prettyNum(group_size, big.mark = ","),
+        parity_name,
+        parity_print = sprintf("%0.2f (%0.3f)", round(parity_value, 2), round(metric_value, 3))
+    ) |>
+    pivot_wider(names_from = "parity_name",
+                values_from = c("parity_print")) |>
+    mutate(
+        rucc_cat = factor(
+            group_name,
+            levels = c(
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "unknown"
+            ),
+            labels = c(
+                "Metro - Counties in metro areas of 1 million population or more (referent)",
+                "Metro - Counties in metro areas of 250,000 to 1 million population",
+                "Metro - Counties in metro areas of fewer than 250,000 population",
+                "Nonmetro - Urban population of 20,000 or more, adjacent to a metro area",
+                "Nonmetro - Urban population of 20,000 or more, not adjacent to a metro area",
+                "Nonmetro - Urban population of 2,500 to 19,999, adjacent to a metro area",
+                "Nonmetro - Urban population of 2,500 to 19,999, not adjacent to a metro area",
+                "Nonmetro - Completely rural or less than 2,500 urban population, adjacent to a metro area",
+                "Nonmetro - Completely rural or less than 2,500 urban population, not adjacent to a metro area",
+                "Unknown"
+            ),
+            ordered = TRUE
+        ),
+        .before = 1
+    ) |>
+    select(-group_name) |>
+    arrange(rucc_cat)
+```
+
+```{r}
+fairness_table |>
+    kable(
+        format = "html", 
+        row.names = NA,
+        col.names = c(
+            "Rural urban continuum",
+            "Deaths (N)",
+            "ROC AUC Parity\n(ROC AUC)",
+            "False Negative Rate\nParity (False Negative Rate)",
+            "False Positive Rate\nParity (False Positive Rate)"
+        )
+    ) |> 
+    kable_styling("striped", full_width = TRUE)
+```
+
+
