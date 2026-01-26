@@ -1,0 +1,20 @@
+-----------------   Processing of raw death data   -----------------
+Run on: 2025-05-21 18:53:04.187666
+All deaths at import: 6862398
+    Deaths in 2020: 3390278
+    Deaths in 2021: 3472120
+Deaths after subsetting to on or after March 2020: 6352731
+Deaths in the gold standard (train + holdout) data: 2031167
+Deaths used for prediction: 4321564
+-----------------   Creation of gold standard analytic data   -----------------
+Run on: 2025-05-21 18:56:15.328721
+Deaths in gold standard data at import: 2031167
+Deaths in gold standard data after removing under 25 y/o: 1979618
+Deaths in gold standard data after removing external causes of death: 1878456
+
+-----------------   Creation of out-of-hospital (prediction) analytic data   -----------------
+Run on: 2025-05-21 19:01:06.673902
+Deaths in prediction data at import: 4321564
+Deaths in prediction data after removing under 25 y/o: 4237070
+Deaths in prediction data after removing external causes of death: 3850161
+
