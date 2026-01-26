@@ -1,0 +1,20 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## `data_raw`
+
+- `County_Covariates_Sociodemographics_2021.csv` received from Rafeya and the BU team via email on 7/25/23. 
+- `ruralurbancodes2013.xls` downloaded from [USDA](https://www.ers.usda.gov/data-products/rural-urban-continuum-codes.aspx) on 5/18/23.
+- `COVID-19_Vaccinations_in_the_United_States_Count.csv.zip` downloaded from [CDC Data Portal](https://data.cdc.gov/Vaccinations/COVID-19-Vaccinations-in-the-United-States-County/8xkx-amqh) on 5/18/23. Note that this file was compressed to save space but is otherwise unaltered. 
+- `Weekly_COVID-19_County_Level_of_Community_Transmission_as_Originally_Posted_-_ARCHIVED.csv` downloaded from the [CDC Data Portal](https://data.cdc.gov/Public-Health-Surveillance/Weekly-COVID-19-County-Level-of-Community-Transmis/dt66-w6m6) on 5/18/23. 
+- `United_States_COVID-19_County_Level_of_Community_Transmission_Historical_Changes_-_ARCHIVED.csv` downloaded from the [CDC Data Portal](https://data.cdc.gov/Public-Health-Surveillance/United-States-COVID-19-County-Level-of-Community-T/nra9-vzzn) on 5/18/23.

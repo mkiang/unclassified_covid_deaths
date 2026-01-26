@@ -1,0 +1,38 @@
+## Things worth noting. The training data has about 2 million rows -- tuning 
+## and fitting these models takes a huge amount of time and a lot of RAM. If
+## you are running the full data (the default config), n_cores should be set to
+## about 1 core per 100GB of RAM. The smaller configs can run more cores 
+## because they use a tiny fraction of the data. 
+
+default:
+  validate_prop: .2     # prop of gold standard data for tuning models
+  train_prop: .75       # prop (after removing testing) for training model
+  k_folds: 5            # number of folds for outer nested cross-validation
+  v_repeats: 1          # repeated k-folds? No by default.
+  start_year: 2020      # first year of data analysis
+  end_year: 2021        # last year of data analysis 
+  random_seed: 94304    # random seed for data splits
+  tune_bayes_iter: 125  # how many iterations for Bayes tuning
+  tune_bayes_stop: 25   # early stopping when no improvement for x iterations
+  n_cores: 1            # number of cores for parallel processing outer loop
+  n_cores_tune: 4       # number of cores for parallel processing inner loop
+  n_pred_bins: 40       # number of bins for predicted probability
+  data_prop: 1          # only changed in other configs
+  k_fold_fair: 5        # number of splits for fairness evaluation
+  top_models:           # The selected model(s) for evaluation (with fold)
+    - 'xgboost_bayes_tune_nocountynoucr-2'
+    - 'lightgbm_bayes_tune_nocountynoucr-2'
+
+## Use this profile to quickly iterate and check for bugs
+## NOTE: Substantially less data but can still take a while to run
+prototyping: 
+  data_prop: .05        # proportion of data to use for prototyping
+  tune_bayes_iter: 50 
+  tune_bayes_stop: 15
+  n_cores: 4
+
+debug: 
+  data_prop: .01        # proportion of data to use for debugging
+  tune_bayes_iter: 5 
+  tune_bayes_stop: 3
+  n_cores: 8
