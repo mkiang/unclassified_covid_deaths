@@ -10,9 +10,10 @@
 
 ## Introduction
 
-Data and reproducible code for our forthcoming paper, “[Applying Machine
-Learning to Identify Unrecognized COVID-19 Deaths Recorded as Other
-Causes of Death in the United States](TODO)”, which uses machine
+Data and reproducible code for our *Science Advances* paper, “[Applying
+Machine Learning to Identify Unrecognized COVID-19 Deaths Recorded as
+Other Causes of Death in the United
+States](https://doi.org/10.1126/sciadv.aef5697)”, which uses machine
 learning methods on [restricted-access mortality data from the National
 Center for Health
 Statistics](https://www.cdc.gov/nchs/nvss/nvss-restricted-data.htm) to
@@ -21,7 +22,11 @@ estimate the number of unclassified COVID-19 deaths in the US from
 
 The full citation is:
 
-> TODO
+> Kiang MV, Li ZR, Wrigley-Field E, Raquib RV, Lungberg DJ, Paglino E,
+> Huynh B, Bibbins-Domingo K, Glymour MM, Stokes AC. Applying machine
+> learning to identify unrecognized COVID-19 deaths recorded as other
+> causes of death in the United States. *Science Advances*. 2026. doi:
+> 10.1126/sciadv.aef5697.
 
 ### Abstract
 

@@ -21,24 +21,15 @@ knitr::include_graphics("./plots/fig99_github_header.jpg")
 
 ## Introduction 
 
-Data and reproducible code for our forthcoming paper, "[Applying Machine Learning to Identify Unrecognized COVID-19 Deaths Recorded as Other Causes of Death in the United States](TODO)", which uses machine learning methods on [restricted-access mortality data from the National Center for Health Statistics](https://www.cdc.gov/nchs/nvss/nvss-restricted-data.htm) to estimate the number of unclassified COVID-19 deaths in the US from 2020-2021. 
+Data and reproducible code for our _Science Advances_ paper, "[Applying Machine Learning to Identify Unrecognized COVID-19 Deaths Recorded as Other Causes of Death in the United States](https://doi.org/10.1126/sciadv.aef5697)", which uses machine learning methods on [restricted-access mortality data from the National Center for Health Statistics](https://www.cdc.gov/nchs/nvss/nvss-restricted-data.htm) to estimate the number of unclassified COVID-19 deaths in the US from 2020-2021. 
 
 The full citation is:
 
-> TODO
+> Kiang MV, Li ZR, Wrigley-Field E, Raquib RV, Lungberg DJ, Paglino E, Huynh B, Bibbins-Domingo K, Glymour MM, Stokes AC. Applying machine learning to identify unrecognized COVID-19 deaths recorded as other causes of death in the United States. *Science Advances*. 2026. doi: 10.1126/sciadv.aef5697. 
 
 ### Abstract
 
-The actual number of U.S. deaths caused by SARS-CoV-2 infection has been investigated and
-debated since the start of the COVID-19 pandemic. Here, we use machine learning trained on
-U.S. death certificates from March 2020 to December 2021 to predict 155,536 (95% UI: 150,062
-to 161,112) unrecognized COVID-19 deaths. This indicates 19% more COVID-19 deaths
-occurred in the U.S. than officially reported. Predicted unrecognized COVID-19 deaths occurred
-disproportionately among decedents with less than a high school education; decedents identified
-as Hispanic, American Indian, Alaska Native, Asian, and/or Black; counties with lower
-household incomes and worse preexisting health; and counties in the South. These findings
-suggest the U.S. death investigation system undercounted COVID-19 deaths unevenly, hiding
-the true extent of inequities. 
+The actual number of U.S. deaths caused by SARS-CoV-2 infection has been investigated and debated since the start of the COVID-19 pandemic. Here, we use machine learning trained on U.S. death certificates from March 2020 to December 2021 to predict 155,536 (95% UI: 150,062 to 161,112) unrecognized COVID-19 deaths. This indicates 19% more COVID-19 deaths occurred in the U.S. than officially reported. Predicted unrecognized COVID-19 deaths occurred disproportionately among decedents with less than a high school education; decedents identified as Hispanic, American Indian, Alaska Native, Asian, and/or Black; counties with lower household incomes and worse preexisting health; and counties in the South. These findings suggest the U.S. death investigation system undercounted COVID-19 deaths unevenly, hiding the true extent of inequities.
 
 ### Issues
 
